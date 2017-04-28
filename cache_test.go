@@ -68,3 +68,21 @@ func TestStartEvictionTwice(t *testing.T) {
 		t.Error("Expected error when starting eviction twice")
 	}
 }
+
+func TestExpiration(t *testing.T) {
+	cache := NewCache()
+
+	testKey := "test"
+	testVal := []byte("This is a test!")
+	expiration := time.Now().Add(time.Hour)
+
+	cache.Set(testKey, testVal, expiration)
+
+	cache.clock = &Clock{instant: expiration.Add(1 * time.Second)}
+
+	shouldBeEvicted := cache.Read(testKey)
+
+	if shouldBeEvicted != nil {
+		t.Error("Expected the expired item to be evicted")
+	}
+}

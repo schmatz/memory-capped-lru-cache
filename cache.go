@@ -8,6 +8,17 @@ import (
 	"time"
 )
 
+type Clock struct {
+	instant time.Time
+}
+
+func (c *Clock) Now() time.Time {
+	if c == nil {
+		return time.Now()
+	}
+	return c.instant
+}
+
 // An Entry represents a value in a Cache
 type Entry struct {
 	lock        sync.RWMutex
@@ -40,6 +51,7 @@ type Cache struct {
 	lru             *list.List
 	ticker          *time.Ticker
 	bytesReferenced uint64
+	clock           *Clock
 }
 
 func (c *Cache) Read(key string) []byte {
@@ -47,6 +59,13 @@ func (c *Cache) Read(key string) []byte {
 
 	e, ok := c.data[key]
 	if !ok {
+		c.Unlock()
+		return nil
+	}
+
+	if e.expiration.Before(c.clock.Now()) {
+		c.lru.Remove(e.listElement)
+		delete(c.data, key)
 		c.Unlock()
 		return nil
 	}
@@ -108,9 +127,6 @@ func (c *Cache) StartEviction(memoryLimit uint64, checkInterval time.Duration) e
 				entry := c.data[entryKey]
 				c.bytesReferenced -= uint64(len(entry.data))
 				delete(c.data, entryKey)
-				c.Unlock()
-				// give other users chance to get lock
-				c.Lock()
 			}
 			c.Unlock()
 		}
