@@ -1,10 +1,12 @@
 package cache
 
-import "testing"
-import "time"
-import "reflect"
+import (
+	"reflect"
+	"testing"
+	"time"
+)
 
-func TestSetReadUpdate(t *testing.T) {
+func TestSetGetUpdate(t *testing.T) {
 	cache := NewCache()
 
 	testKey := "test"
@@ -13,7 +15,7 @@ func TestSetReadUpdate(t *testing.T) {
 
 	cache.Set(testKey, testVal, expiration)
 
-	readVal := cache.Read(testKey)
+	readVal := cache.Get(testKey)
 	if !reflect.DeepEqual(readVal, testVal) {
 		t.Error("Key put in store not equal to key read from store")
 	}
@@ -21,16 +23,16 @@ func TestSetReadUpdate(t *testing.T) {
 	testVal = []byte("Different value")
 	cache.Set(testKey, testVal, expiration)
 
-	readVal = cache.Read(testKey)
+	readVal = cache.Get(testKey)
 	if !reflect.DeepEqual(readVal, testVal) {
 		t.Error("Key put in store not equal to key read from store")
 	}
 }
 
-func TestNonexistentRead(t *testing.T) {
+func TestNonexistentGet(t *testing.T) {
 	cache := NewCache()
 
-	nonexistent := cache.Read("lol")
+	nonexistent := cache.Get("lol")
 	if nonexistent != nil {
 		t.Error("Non-existent values should be nil")
 	}
@@ -50,7 +52,7 @@ func TestEviction(t *testing.T) {
 	time.Sleep(5 * time.Millisecond)
 	cache.StopEviction()
 
-	shouldBeEvicted := cache.Read(testKey)
+	shouldBeEvicted := cache.Get(testKey)
 	if shouldBeEvicted != nil {
 		t.Error("Expected the value to be evicted")
 	}
@@ -78,11 +80,26 @@ func TestExpiration(t *testing.T) {
 
 	cache.Set(testKey, testVal, expiration)
 
-	cache.clock = &Clock{instant: expiration.Add(1 * time.Second)}
+	cache.clock = &clock{instant: expiration.Add(1 * time.Second)}
 
-	shouldBeEvicted := cache.Read(testKey)
+	shouldBeEvicted := cache.Get(testKey)
 
 	if shouldBeEvicted != nil {
 		t.Error("Expected the expired item to be evicted")
+	}
+}
+
+func TestBytesReferenced(t *testing.T) {
+	cache := NewCache()
+
+	testKey := "test"
+	testVal := []byte("This is a test!")
+	expiration := time.Now().Add(time.Hour)
+
+	cache.Set(testKey, testVal, expiration)
+
+	size := cache.BytesReferenced()
+	if size != uint64(len(testVal)) {
+		t.Error("Expected size of cache to be equal to sum of items")
 	}
 }
