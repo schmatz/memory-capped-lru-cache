@@ -2,6 +2,7 @@ package cache
 
 import (
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -102,4 +103,23 @@ func TestBytesReferenced(t *testing.T) {
 	if size != uint64(len(testVal)) {
 		t.Error("Expected size of cache to be equal to sum of items")
 	}
+}
+
+func BenchmarkConcurrentInserts(b *testing.B) {
+	cache := NewCache()
+	expiration := time.Now().Add(time.Hour)
+	var strings []string
+	for i := 0; i < 100000; i++ {
+		strings = append(strings, strconv.Itoa(i))
+	}
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		counter := 0
+		for pb.Next() {
+			s := strings[counter%len(strings)]
+			cache.Set(s, []byte(s), expiration)
+			counter++
+		}
+	})
 }
